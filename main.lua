@@ -3,28 +3,48 @@ math.randomseed(os.time())
 
 local gl = {
 	cellSize = 16,
-	windowWidth = 240,
+	windowWidth = 256,
 	windowHeight = 160,
 	windowScale = 2,
 }
+gl.gridStartingX = gl.windowWidth / 2
+gl.gridStartingY = 0
+
+
 function gl.clamp(val, min, max) if val < min then return min elseif val > max then return max end return val end
+
+function gl.getScrCoords(x, y, both)
+	if both == true then return (x * 1 + y * -1), (x * 0.5 + y * 0.5) end
+	return {x=(x * 1 + y * -1), y=(x * 0.5 + y * 0.5)}
+end
+function gl.getIsoCoords(x, y, both)
+	local rx = math.floor((
+		(x - gl.gridStartingX) / gl.cellSize + (y - gl.gridStartingY) / (gl.cellSize / 2)) / 2) + 1
+	local ry = math.floor((
+		(y - gl.gridStartingY) / (gl.cellSize / 2) - (x - gl.gridStartingX) / gl.cellSize) / 2) + 1
+
+	if both == true then return rx, ry end
+	return {x=rx, y=ry}
+end
+
 love.window.setMode(gl.windowWidth * gl.windowScale, gl.windowHeight * gl.windowScale)
 
-function newSheet(img, cellSize)
+function newSheet(img, cellX, cellY)
+	cellY = cellY or cellX
 	local sheet = {
 		img = love.graphics.newImage(img),
 		quads = {},
 	}
-	sheet.width = sheet.img:getWidth() / cellSize
-	sheet.height = sheet.img:getHeight() / cellSize
+	sheet.width = sheet.img:getWidth() / cellX
+	sheet.height = sheet.img:getHeight() / cellY
 	sheet.batch = love.graphics.newSpriteBatch(sheet.img)
 	for y = 1, sheet.height do
 		sheet.quads[y] = {}
 		for x = 1, sheet.width do
 			sheet.quads[y][x] = love.graphics.newQuad(
-				(x - 1) * cellSize,
-				(y - 1) * cellSize,
-				cellSize, cellSize,
+				(x - 1) * cellX,
+				(y - 1) * cellY,
+				cellX, cellY,
 				sheet.img
 			)
 		end
@@ -34,7 +54,8 @@ function newSheet(img, cellSize)
 end
 
 local a = {
-	tiles = newSheet("assets/tiles.png", gl.cellSize),
+	tiles = newSheet("assets/tiles-iso.png", gl.cellSize * 2, gl.cellSize),
+	cursor = love.graphics.newImage("assets/cursor.png"),
 }
 
 function newEntity(name)
@@ -100,6 +121,7 @@ function newRoom(width, height)
 	
 	function room:getEntity(x, y, type, reps)
 		reps = reps or 0
+		if not self.tiles[y] or not self.tiles[y][x] then return nil end
 		if self.tiles[y][x].entity.isPointer then
 			if reps > 0 then 
 				print(self.tiles[y][x].entity.pointer[1], self.tiles[y][x].entity.pointer[2])
@@ -140,12 +162,14 @@ function love.update(dt)
 	mouse.absx = math.floor(love.mouse.getX() / gl.windowScale)
 	mouse.absy = math.floor(love.mouse.getY() / gl.windowScale)
 	
-	mouse.x = math.floor(mouse.absx / gl.cellSize) + 1
-	mouse.y = math.floor(mouse.absy / gl.cellSize) + 1
+	--mouse.x = math.floor(mouse.absx / gl.cellSize) + 1
+	--mouse.y = math.floor(mouse.absy / gl.cellSize) + 1
+	mouse.x, mouse.y = gl.getIsoCoords(mouse.absx, mouse.absy, true)
 end
 
 local fullCanvas = love.graphics.newCanvas(gl.windowWidth, gl.windowHeight)
 love.graphics.setLineWidth(1)
+
 function love.draw()
 	love.graphics.setCanvas(fullCanvas)
 	love.graphics.clear()
@@ -154,20 +178,17 @@ function love.draw()
 	for y = 1, room.height do
 		for x = 1, room.width do
 			a.tiles.batch:add(a.tiles.quads[room.tiles[y][x].value][room.tiles[y][x].type],
-				(x - 1) * gl.cellSize, (y - 1) * gl.cellSize
+				(gl.getScrCoords(x, y).x - 1) * gl.cellSize, 
+				(gl.getScrCoords(x, y).y - 1) * gl.cellSize
 			)
 		end
 	end
-	love.graphics.draw(a.tiles.batch)
-	
-	love.graphics.setColor(0, 1, 1)
+	love.graphics.draw(a.tiles.batch, gl.gridStartingX)	
 
-	love.graphics.rectangle("line",
-		(mouse.x - 1) * gl.cellSize, (mouse.y - 1) * gl.cellSize,
-		gl.cellSize, gl.cellSize
+	love.graphics.draw(a.cursor, 
+		(gl.getScrCoords(mouse.x, mouse.y).x - 1) * gl.cellSize + gl.gridStartingX,
+		(gl.getScrCoords(mouse.x, mouse.y).y - 1) * gl.cellSize + gl.gridStartingY
 	)
-	love.graphics.setColor(0, 1, 0)
-	love.graphics.setColor(1, 1, 1)
 	
 	if room:getEntity(mouse.x, mouse.y) then
 		love.graphics.print(
