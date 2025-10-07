@@ -6,9 +6,13 @@ local gl = {
 	windowWidth = 256,
 	windowHeight = 160,
 	windowScale = 2,
+	camera = {
+		x = 0,
+		y = 0
+	}
 }
 gl.gridStartingX = gl.windowWidth / 2
-gl.gridStartingY = 0
+gl.gridStartingY = (gl.windowHeight / 2) - 64
 
 
 function gl.clamp(val, min, max) if val < min then return min elseif val > max then return max end return val end
@@ -18,10 +22,18 @@ function gl.getScrCoords(x, y, both)
 	return {x=(x * 1 + y * -1), y=(x * 0.5 + y * 0.5)}
 end
 function gl.getIsoCoords(x, y, both)
-	local rx = math.floor((
-		(x - gl.gridStartingX) / gl.cellSize + (y - gl.gridStartingY) / (gl.cellSize / 2)) / 2) + 1
-	local ry = math.floor((
-		(y - gl.gridStartingY) / (gl.cellSize / 2) - (x - gl.gridStartingX) / gl.cellSize) / 2) + 1
+	local rx = math.floor(
+		(
+			((x - gl.gridStartingX) / gl.cellSize - gl.camera.x * 2) + 
+			((y - gl.gridStartingY) / (gl.cellSize / 2) - gl.camera.y * 2)
+		) / 2
+	) + 1
+	local ry = math.floor(
+		(
+			((y - gl.gridStartingY) / (gl.cellSize / 2) - gl.camera.y * 2) - 
+			((x - gl.gridStartingX) / gl.cellSize - gl.camera.x * 2)
+		) / 2
+	) + 1
 
 	if both == true then return rx, ry end
 	return {x=rx, y=ry}
@@ -60,7 +72,7 @@ local a = {
 
 function newEntity(name)
 	local entity = {
-		occupies = {2, 2},
+		occupies = {1, 1},
 		check = "hello and welcome to the test entity.\ni hope you have a great day"
 	}
 	entity.name = name
@@ -166,6 +178,20 @@ function love.update(dt)
 	--mouse.y = math.floor(mouse.absy / gl.cellSize) + 1
 	mouse.x, mouse.y = gl.getIsoCoords(mouse.absx, mouse.absy, true)
 end
+function love.keypressed(key)
+	if key == "f" then
+		gl.camera.x = gl.camera.x + 1
+	end
+	if key == "s" then
+		gl.camera.x = gl.camera.x - 1
+	end
+	if key == "d" then
+		gl.camera.y = gl.camera.y + 1
+	end
+	if key == "e" then
+		gl.camera.y = gl.camera.y - 1
+	end
+end
 
 local fullCanvas = love.graphics.newCanvas(gl.windowWidth, gl.windowHeight)
 love.graphics.setLineWidth(1)
@@ -183,11 +209,14 @@ function love.draw()
 			)
 		end
 	end
-	love.graphics.draw(a.tiles.batch, gl.gridStartingX)	
+	love.graphics.draw(a.tiles.batch, 
+		gl.gridStartingX + (gl.camera.x * gl.cellSize * 2), 
+		gl.gridStartingY + (gl.camera.y * gl.cellSize)
+	)
 
 	love.graphics.draw(a.cursor, 
-		(gl.getScrCoords(mouse.x, mouse.y).x - 1) * gl.cellSize + gl.gridStartingX,
-		(gl.getScrCoords(mouse.x, mouse.y).y - 1) * gl.cellSize + gl.gridStartingY
+		(gl.getScrCoords(mouse.x, mouse.y).x - 1) * gl.cellSize + gl.gridStartingX + (gl.camera.x * gl.cellSize * 2),
+		(gl.getScrCoords(mouse.x, mouse.y).y - 1) * gl.cellSize + gl.gridStartingY + (gl.camera.y * gl.cellSize)
 	)
 	
 	if room:getEntity(mouse.x, mouse.y) then
@@ -196,6 +225,7 @@ function love.draw()
 			0, room.height * gl.cellSize
 		)
 	end
+	love.graphics.print(mouse.x.." "..mouse.y, 0, 0)
 	
 	love.graphics.setCanvas()
 	love.graphics.draw(fullCanvas, 0, 0, 0, gl.windowScale, gl.windowScale)
