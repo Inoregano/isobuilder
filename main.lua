@@ -1,3 +1,5 @@
+local tween = require"scripts/tween/tween"
+
 love.graphics.setDefaultFilter("nearest")
 math.randomseed(os.time())
 
@@ -8,8 +10,13 @@ local gl = {
 	windowScale = 2,
 	camera = {
 		x = 0,
-		y = 0
-	}
+		y = 0,
+		xtween = {update = function(self) end},
+		ytween = {update = function(self) end},
+		dispx = 0,
+		dispy = 0,
+		speed = 0.3,
+	},
 }
 gl.gridStartingX = gl.windowWidth / 2
 gl.gridStartingY = (gl.windowHeight / 2) - 64
@@ -68,6 +75,9 @@ end
 local a = {
 	tiles = newSheet("assets/tiles-iso.png", gl.cellSize * 2, gl.cellSize),
 	cursor = love.graphics.newImage("assets/cursor.png"),
+	entities = {
+		test = newSheet("assets/entities/test.png", gl.cellSize * 2, gl.cellSize * 2)
+	}
 }
 
 function newEntity(name)
@@ -171,6 +181,8 @@ local mouse = {
 }
 
 function love.update(dt)
+	gl.camera.xtween:update(dt)
+	gl.camera.ytween:update(dt)
 	mouse.absx = math.floor(love.mouse.getX() / gl.windowScale)
 	mouse.absy = math.floor(love.mouse.getY() / gl.windowScale)
 	
@@ -181,15 +193,19 @@ end
 function love.keypressed(key)
 	if key == "f" then
 		gl.camera.x = gl.camera.x + 1
+		gl.camera.xtween = tween.new(gl.camera.speed, gl.camera, {dispx = gl.camera.x})
 	end
 	if key == "s" then
 		gl.camera.x = gl.camera.x - 1
+		gl.camera.xtween = tween.new(gl.camera.speed, gl.camera, {dispx = gl.camera.x})
 	end
 	if key == "d" then
 		gl.camera.y = gl.camera.y + 1
+		gl.camera.ytween = tween.new(gl.camera.speed, gl.camera, {dispy = gl.camera.y})
 	end
 	if key == "e" then
 		gl.camera.y = gl.camera.y - 1
+		gl.camera.ytween = tween.new(gl.camera.speed, gl.camera, {dispy = gl.camera.y})
 	end
 end
 
@@ -210,13 +226,13 @@ function love.draw()
 		end
 	end
 	love.graphics.draw(a.tiles.batch, 
-		gl.gridStartingX + (gl.camera.x * gl.cellSize * 2), 
-		gl.gridStartingY + (gl.camera.y * gl.cellSize)
+		gl.gridStartingX + (gl.camera.dispx * gl.cellSize * 2), 
+		gl.gridStartingY + (gl.camera.dispy * gl.cellSize)
 	)
 
 	love.graphics.draw(a.cursor, 
-		(gl.getScrCoords(mouse.x, mouse.y).x - 1) * gl.cellSize + gl.gridStartingX + (gl.camera.x * gl.cellSize * 2),
-		(gl.getScrCoords(mouse.x, mouse.y).y - 1) * gl.cellSize + gl.gridStartingY + (gl.camera.y * gl.cellSize)
+		(gl.getScrCoords(mouse.x, mouse.y).x - 1) * gl.cellSize + gl.gridStartingX + (gl.camera.dispx * gl.cellSize * 2),
+		(gl.getScrCoords(mouse.x, mouse.y).y - 1) * gl.cellSize + gl.gridStartingY + (gl.camera.dispy * gl.cellSize)
 	)
 	
 	if room:getEntity(mouse.x, mouse.y) then

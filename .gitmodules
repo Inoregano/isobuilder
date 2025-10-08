@@ -1,0 +1,3 @@
+[submodule "scripts/tween"]
+	path = scripts/tween
+	url = https://github.com/kikito/tween.lua
